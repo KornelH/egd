@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2025. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,8 +19,8 @@
 %%
 
 {application, egd,
- [{description, "Erlang Graphics Draw"},
-  {vsn, git},
+ [{description, "Erlang Graphical Drawer"},
+  {vsn, "0.10.1"},
   {registered, []},
   {applications, [kernel,
                   stdlib]},
@@ -30,9 +30,12 @@
              egd_png,
              egd_primitives,
              egd_render]},
-  {maintainers, []},
-  {licenses, []},
-  {links, []}
+  %% hex.pm properties
+  {pkg_name, egd24}, % reserve name 'egd' for the original author, however
+                     % ownership can be transferred later too:
+                     % https://hexdocs.pm/rebar3_hex/rebar3_hex_owner.html
+  {licenses, ["Apache-2.0"]},
+  {links, [{"GitHub","https://github.com/KornelH/egd"}]}
  ]}.
 
 %% vim: ft=erlang

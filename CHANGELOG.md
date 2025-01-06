@@ -1,6 +1,6 @@
 # Change log
 
-## Unreleased
+## Version 0.10.1 (February 09, 2025)
 
 - Align to OTP 24: use `erlang:crc32/1` instead of `zlib:crc32/2`, as the later
   one has been deprecated in OTP 24 and was removed in OTP 27.
