@@ -40,22 +40,57 @@
 %% Type definitions
 %%==========================================================================
 
-%% @type egd_image()
-%% @type font()
-%% @type point() = {integer(), integer()}
-%% @type color()  
-%% @type render_option() = {render_engine, opaque} | {render_engine, alpha}
-
 -type egd_image() :: pid().
--type point() :: {non_neg_integer(), non_neg_integer()}.
+-type image_type() :: png | raw_bitmap | eps.
+-type font() :: term().
+%% Internal font representation returned by {@link egd_font:load/1} or
+%% {@link egd_font:load_binary/1}
+
+-type point() :: {X::non_neg_integer(), Y::non_neg_integer()}.
 -type render_option() :: {'render_engine', 'opaque'} | {'render_engine', 'alpha'}.
--type color() :: {float(), float(), float(), float()}.
+
+-type color3() :: {Red::byte(), Green::byte(), Blue::byte()}.
+-type color4() :: {Red::byte(), Green::byte(), Blue::byte(), Alpha::byte()}.
+-type colorNameSimple() :: aqua | black | blue | fuchia | gray | green | lime |
+                           maroon | navy | olive | purple | red | silver | teal |
+                           white | yellow.
+%% HTML default colors
+
+-type colorNameExtended() ::
+        aliceblue | antiquewhite | aquamarine | azure | beige | bisque |
+        blanchedalmond | blueviolet | brown | burlywood | cadetblue |
+        chartreuse | chocolate | coral | cornflowerblue | cornsilk | crimson |
+        cyan | darkblue | darkcyan | darkgoldenrod | darkgray | darkgreen |
+        darkkhaki | darkmagenta | darkolivegreen | darkorange | darkorchid |
+        darkred | darksalmon | darkseagreen | darkslateblue | darkslategray |
+        darkturquoise | darkviolet | deeppink | deepskyblue | dimgray |
+        dodgerblue | firebrick | floralwhite | forestgreen | fuchsia |
+        gainsboro | ghostwhite | gold | goldenrod | greenyellow | honeydew |
+        hotpink | indianred | indigo | ivory | khaki | lavender |
+        lavenderblush | lawngreen | lemonchiffon | lightblue | lightcoral |
+        lightcyan | lightgoldenrodyellow | lightgreen | lightgrey | lightpink |
+        lightsalmon | lightseagreen | lightskyblue | lightslategray |
+        lightsteelblue | lightyellow | limegreen | linen | magenta |
+        mediumaquamarine | mediumblue | mediumorchid | mediumpurple |
+        mediumseagreen | mediumslateblue | mediumspringgreen | mediumturquoise |
+        mediumvioletred | midnightblue | mintcream | mistyrose | moccasin |
+        navajowhite | oldlace | olivedrab | orange | orangered | orchid |
+        palegoldenrod | palegreen | paleturquoise | palevioletred | papayawhip |
+        peachpuff | peru | pink | plum | powderblue | rosybrown | royalblue |
+        saddlebrown | salmon | sandybrown | seagreen | seashell | sienna |
+        skyblue | slateblue | slategray | snow | springgreen | steelblue | tan |
+        thistle | tomato | turquoise | violet | wheat | whitesmoke |
+        yellowgreen.
+%% HTML color extensions
+
+-type colorName() :: colorNameSimple() | colorNameExtended().
+-type color() :: color3() | color4() | colorName() |
+                 {colorName(), Alpha::byte()}.
 
 %%==========================================================================
 %% Interface functions
 %%==========================================================================
 
-%% @spec create(integer(), integer()) -> egd_image()
 %% @doc Creates an image area and returns its reference.
 
 -spec create(Width :: integer(), Height :: integer()) -> egd_image().
@@ -64,7 +99,6 @@ create(Width,Height) ->
     spawn_link(fun() -> init(trunc(Width),trunc(Height)) end).
 
 
-%% @spec destroy(egd_image()) -> ok
 %% @doc Destroys the image.
 
 -spec destroy(Image :: egd_image()) -> ok.
@@ -73,7 +107,6 @@ destroy(Image) ->
    cast(Image, destroy).
 
 
-%% @spec render(egd_image()) -> binary()
 %% @equiv render(Image, png, [{render_engine, opaque}])
 
 -spec render(Image :: egd_image()) -> binary().
@@ -81,120 +114,147 @@ destroy(Image) ->
 render(Image) ->
     render(Image, png, [{render_engine, opaque}]).
 
-%% @spec render(egd_image(), png | raw_bitmap) -> binary() 
 %% @equiv render(Image, Type, [{render_engine, opaque}])
+
+-spec render(Image :: egd_image(), Type :: image_type()) -> binary().
 
 render(Image, Type) ->
     render(Image, Type, [{render_engine, opaque}]).
 
-%% @spec render(egd_image(), png | raw_bitmap, [render_option()]) -> binary() 
 %% @doc Renders a binary from the primitives specified by egd_image(). The
-%% 	binary can either be a raw bitmap with rgb tripplets or a binary in png
+%% 	binary can either be a raw bitmap with rgb triplets or a binary in png
 %%	format.
 
--spec render(
-	Image :: egd_image(), 
-	Type :: 'png' | 'raw_bitmap' | 'eps',
-	Options :: [render_option()]) -> binary().
+-spec render(Image :: egd_image(),
+             Type :: image_type(),
+             Options :: [render_option()]) -> binary().
 
 render(Image, Type, Options) ->
     {render_engine, RenderType} = proplists:lookup(render_engine, Options),
     call(Image, {render, Type, RenderType}).
 
 
-%% @spec information(egd_image()) -> ok
 %% @hidden
 %% @doc Writes out information about the image. This is a debug feature
 %%	mainly.
 
+-spec information(Image :: egd_image()) -> ok.
+
 information(Pid) ->
     cast(Pid, information).
 
-%% @spec line(egd_image(), point(), point(), color()) -> ok
 %% @doc Creates a line object from P1 to P2 in the image.
 
--spec line(
-	Image :: egd_image(),
-	P1 :: point(),
-	P2 :: point(),
-	Color :: color()) -> 'ok'.
+-spec line(Image :: egd_image(),
+           Point1 :: point(),
+           Point2 :: point(),
+           Color :: color()) -> ok.
 
 line(Image, P1, P2, Color) ->
     cast(Image, {line, P1, P2, Color}).
 
-%% @spec color( Value | Name ) -> color()
-%% where
-%%  Value = {byte(), byte(), byte()} | {byte(), byte(), byte(), byte()} 
-%%  Name  = black | silver | gray | white | maroon | red | purple | fuchia | green | lime | olive | yellow | navy | blue | teal | aqua
 %% @doc Creates a color reference.
 
--spec color(Value :: {byte(), byte(), byte()} | {byte(), byte(), byte(), byte()} | atom()) ->
-    color().
+-spec color(Color :: color()) -> color4().
 
 color(Color) ->
     egd_primitives:color(Color).
 
-%% @spec color(egd_image(), {byte(), byte(), byte()}) -> color()
 %% @doc Creates a color reference.
 %% @hidden
+
+-spec color(_Image :: egd_image(), Color :: color()) -> color4().
 
 color(_Image, Color) ->
     egd_primitives:color(Color).
 
-%% @spec text(egd_image(), point(), font(), string(), color()) -> ok
 %% @doc Creates a text object.
+
+-spec text(Image :: egd_image(),
+           Point :: point(),
+           Font :: font(),
+           Text :: string(),
+           Color :: color()) -> ok.
 
 text(Image, P, Font, Text, Color) ->
     cast(Image, {text, P, Font, Text, Color}).
 
-%% @spec rectangle(egd_image(), point(), point(), color()) -> ok
 %% @doc Creates a rectangle object.
+
+-spec rectangle(Image :: egd_image(),
+                Point1 :: point(),
+                Point2 :: point(),
+                Color :: color()) -> ok.
 
 rectangle(Image, P1, P2, Color) ->
     cast(Image, {rectangle, P1, P2, Color}).
 
-%% @spec filledRectangle(egd_image(), point(), point(), color()) -> ok
 %% @doc Creates a filled rectangle object.
+
+-spec filledRectangle(Image :: egd_image(),
+                      Point1 :: point(),
+                      Point2 :: point(),
+                      Color :: color()) -> ok.
 
 filledRectangle(Image, P1, P2, Color) ->
     cast(Image, {filled_rectangle, P1, P2, Color}).
 
-%% @spec filledEllipse(egd_image(), point(), point(), color()) -> ok
 %% @doc Creates a filled ellipse object.
+
+-spec filledEllipse(Image :: egd_image(),
+                    Point1 :: point(),
+                    Point2 :: point(),
+                    Color :: color()) -> ok.
 
 filledEllipse(Image, P1, P2, Color) ->
     cast(Image, {filled_ellipse, P1, P2, Color}).
 
-%% @spec filledTriangle(egd_image(), point(), point(), point(), color()) -> ok
 %% @hidden
 %% @doc Creates a filled triangle object.
+
+-spec filledTriangle(Image :: egd_image(),
+                     Point1 :: point(),
+                     Point2 :: point(),
+                     Point3 :: point(),
+                     Color :: color()) -> ok.
 
 filledTriangle(Image, P1, P2, P3, Color) ->
     cast(Image, {filled_triangle, P1, P2, P3, Color}).
 
-%% @spec polygon(egd_image(), [point()], color()) -> ok
 %% @hidden
 %% @doc Creates a filled filled polygon object.
+
+-spec polygon(Image :: egd_image(), Points :: [point()], Color :: color()) -> ok.
 
 polygon(Image, Pts, Color) ->
     cast(Image, {polygon, Pts, Color}).
 
-%% @spec arc(egd_image(), point(), point(), color()) -> ok
 %% @hidden
 %% @doc Creates an arc with radius of bbx corner.
+
+-spec arc(Image :: egd_image(),
+          Point1 :: point(),
+          Point2 :: point(),
+          Color :: color()) -> ok.
 
 arc(Image, P1, P2, Color) ->
     cast(Image, {arc, P1, P2, Color}).
 
-%% @spec arc(egd_image(), point(), point(), integer(), color()) -> ok
 %% @hidden
 %% @doc Creates an arc.
+
+-spec arc(Image :: egd_image(),
+          Point1 :: point(),
+          Point2 :: point(),
+          Radius :: integer(),
+          Color :: color()) -> ok.
 
 arc(Image, P1, P2, D, Color) ->
     cast(Image, {arc, P1, P2, D, Color}).
 
-%% @spec save(binary(), string()) -> ok
 %% @doc Saves the binary to file. 
+
+-spec save(RenderedImage :: binary(), Filename :: string()) -> ok.
 
 save(Binary, Filename) when is_binary(Binary) ->
     ok = file:write_file(Filename, Binary),

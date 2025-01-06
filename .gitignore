@@ -3,10 +3,7 @@ log
 logs
 _build
 
-doc/specs/
-doc/src/egd.xml
-doc/src/egd_ug.xml
-doc/src/ref_man.xml
+/doc/
 
 .rebar3
 _*
